@@ -6,14 +6,14 @@ services:
     container_name: traefik
     restart: unless-stopped
     command:
-      - "--api.insecure=true"  # Habilita o dashboard (apenas para desenvolvimento)
+      - "--api.insecure=true"
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--accesslog=true"
       - "--accesslog.format=json"
-      - "--log.level=DEBUG"  # Para visualizar logs detalhados
+      - "--log.level=DEBUG"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
     ports:
@@ -32,7 +32,6 @@ services:
       - "traefik.http.routers.dashboard.service=api@internal"
       - "traefik.http.routers.dashboard.entrypoints=web"
 
-  # API Service usando Gin
   api-service:
     build:
       context: ./api-service
@@ -59,7 +58,6 @@ services:
       - "traefik.http.middlewares.api-auth.forwardauth.authResponseHeaders=X-User-ID,X-User-Role"
       - "traefik.http.routers.api.middlewares=api-auth"
 
-  # Auth Service
   auth-service:
     build:
       context: ./auth-service
@@ -84,7 +82,6 @@ services:
       - "traefik.http.routers.auth.entrypoints=web"
       - "traefik.http.services.auth.loadbalancer.server.port=8001"
 
-  # MongoDB
   mongodb:
     image: mongo:6.0
     container_name: mongodb

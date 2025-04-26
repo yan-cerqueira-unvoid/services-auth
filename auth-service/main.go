@@ -44,24 +44,23 @@ type RegisterRequest struct {
 }
 
 func main() {
-	// Configuração de logs
 	logger.SetOutput(os.Stdout)
 	logLevel := os.Getenv("LOG_LEVEL")
+	
 	if logLevel == "debug" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else {
 		logger.SetLevel(logrus.InfoLevel)
 	}
+
 	logger.SetFormatter(&logrus.JSONFormatter{})
 
-	// Configuração JWT
 	jwtSecret = os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		jwtSecret = "default_jwt_secret_change_this"
 		logger.Warn("JWT_SECRET not configured, using default value")
 	}
 
-	// Conexão com MongoDB
 	mongoURI := os.Getenv("MONGODB_URI")
 	if mongoURI == "" {
 		mongoURI = "mongodb://localhost:27017/auth"
@@ -77,7 +76,6 @@ func main() {
 		logger.WithError(err).Fatal(ErrMongoConnection)
 	}
 	
-	// Verificar conexão
 	err = client.Ping(ctx, nil)
 	if err != nil {
 		logger.WithError(err).Fatal(ErrMongoPing)
@@ -86,12 +84,10 @@ func main() {
 	logger.Info("Successfully connected to MongoDB")
 	collection = client.Database("auth").Collection("users")
 
-	// Configuração do Gin
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(logMiddleware())
 
-	// Rotas
 	r.GET("/health", healthCheck)
 	r.POST("/login", login)
 	r.POST("/register", register)
@@ -110,13 +106,11 @@ func main() {
 
 func logMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Before request
 		path := c.Request.URL.Path
 		method := c.Request.Method
 		
 		c.Next()
 		
-		// After request
 		statusCode := c.Writer.Status()
 		logger.WithFields(logrus.Fields{
 			"path":   path,
@@ -140,7 +134,6 @@ func register(c *gin.Context) {
 		return
 	}
 
-	// Check if user already exists
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
@@ -152,7 +145,6 @@ func register(c *gin.Context) {
 		return
 	}
 
-	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
 		logger.WithError(err).Error(ErrPasswordHashFailed)
@@ -160,7 +152,6 @@ func register(c *gin.Context) {
 		return
 	}
 
-	// Create new user
 	newUser := User{
 		Username: req.Username,
 		Password: string(hashedPassword),
@@ -174,7 +165,6 @@ func register(c *gin.Context) {
 		return
 	}
 
-	// Return created user ID
 	id := res.InsertedID.(primitive.ObjectID)
 	logger.WithFields(logrus.Fields{
 		"userID":   id.Hex(),
@@ -196,7 +186,6 @@ func login(c *gin.Context) {
 		return
 	}
 
-	// Find user in database
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
@@ -208,7 +197,6 @@ func login(c *gin.Context) {
 		return
 	}
 
-	// Verify password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
 		logger.WithField("username", req.Username).Error(ErrInvalidCredentials)
@@ -216,7 +204,6 @@ func login(c *gin.Context) {
 		return
 	}
 
-	// Generate JWT token
 	tokenExpiry := os.Getenv("TOKEN_EXPIRY")
 	if tokenExpiry == "" {
 		tokenExpiry = "24h"
@@ -267,7 +254,6 @@ func validateToken(c *gin.Context) {
 		tokenString = strings.TrimPrefix(tokenHeader, "Bearer ")
 	}
 
-	// Validate token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf(ErrUnexpectedSigningMethod, token.Header["alg"])
