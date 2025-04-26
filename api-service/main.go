@@ -14,13 +14,11 @@ var logger = logrus.New()
 func main() {
 	logger.SetOutput(os.Stdout)
 	logLevel := os.Getenv("LOG_LEVEL")
-	
 	if logLevel == "debug" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else {
 		logger.SetLevel(logrus.InfoLevel)
 	}
-	
 	logger.SetFormatter(&logrus.JSONFormatter{})
 
 	r := gin.New()
@@ -38,9 +36,9 @@ func main() {
 		port = "8000"
 	}
 
-	logger.Infof("API Service started on port %s", port)
+	logger.Infof("API Service starting on port %s", port)
 	if err := r.Run(fmt.Sprintf(":%s", port)); err != nil {
-		logger.Fatalf("Failed on start server: %v", err)
+		logger.WithError(err).Fatal(ErrServerStart)
 	}
 }
 
@@ -77,13 +75,19 @@ func getData(c *gin.Context) {
 	userID := c.GetHeader("X-User-ID")
 	userRole := c.GetHeader("X-User-Role")
 	
+	if userID == "" {
+		logger.Error(ErrUnauthorized)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": ErrUnauthorized})
+		return
+	}
+	
 	logger.WithFields(logrus.Fields{
 		"userID": userID,
 		"role":   userRole,
 	}).Info("User accessed protected data")
 	
 	c.JSON(http.StatusOK, gin.H{
-		"data": "Dados protegidos",
+		"data": "Protected data",
 		"userID": userID,
 		"role": userRole,
 	})
