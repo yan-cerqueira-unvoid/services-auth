@@ -1,6 +1,7 @@
 package main
 
 import (
+	"api-service/controllers"
 	"fmt"
 	"net/http"
 	"os"
@@ -14,22 +15,28 @@ var logger = logrus.New()
 func main() {
 	logger.SetOutput(os.Stdout)
 	logLevel := os.Getenv("LOG_LEVEL")
+
 	if logLevel == "debug" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else {
 		logger.SetLevel(logrus.InfoLevel)
 	}
+	
 	logger.SetFormatter(&logrus.JSONFormatter{})
 
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(logMiddleware())
-
+	
+	prometheusController := controllers.NewPrometheusController(logger)
+	
+	r.GET("/metrics", prometheusController.HandleMain())
 	r.GET("/health", healthCheck)
 	r.GET("/ping", ping)
 	
 	protected := r.Group("/api")
 	protected.GET("/data", getData)
+	protected.GET("/metrics", prometheusController.HandleMain())
 
 	port := os.Getenv("PORT")
 	if port == "" {

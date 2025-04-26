@@ -12,7 +12,6 @@ services:
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--accesslog=true"
-      - "--accesslog.format=json"
       - "--log.level=DEBUG"
       - "--providers.file.directory=/etc/traefik/dynamic"
       - "--providers.file.watch=true"
