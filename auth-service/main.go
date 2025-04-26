@@ -44,23 +44,24 @@ type RegisterRequest struct {
 }
 
 func main() {
+	// Configuração de logs
 	logger.SetOutput(os.Stdout)
 	logLevel := os.Getenv("LOG_LEVEL")
-	
 	if logLevel == "debug" {
 		logger.SetLevel(logrus.DebugLevel)
 	} else {
 		logger.SetLevel(logrus.InfoLevel)
 	}
-
 	logger.SetFormatter(&logrus.JSONFormatter{})
 
+	// Configuração JWT
 	jwtSecret = os.Getenv("JWT_SECRET")
 	if jwtSecret == "" {
 		jwtSecret = "default_jwt_secret_change_this"
-		logger.Warn("JWT_SECRET não configurado, usando valor padrão")
+		logger.Warn("JWT_SECRET not configured, using default value")
 	}
 
+	// Conexão com MongoDB
 	mongoURI := os.Getenv("MONGODB_URI")
 	if mongoURI == "" {
 		mongoURI = "mongodb://localhost:27017/auth"
@@ -73,21 +74,24 @@ func main() {
 	clientOptions := options.Client().ApplyURI(mongoURI)
 	client, err = mongo.Connect(ctx, clientOptions)
 	if err != nil {
-		logger.Fatalf("Erro ao conectar ao MongoDB: %v", err)
+		logger.WithError(err).Fatal(ErrMongoConnection)
 	}
 	
+	// Verificar conexão
 	err = client.Ping(ctx, nil)
 	if err != nil {
-		logger.Fatalf("Não foi possível conectar ao MongoDB: %v", err)
+		logger.WithError(err).Fatal(ErrMongoPing)
 	}
 	
-	logger.Info("Conectado ao MongoDB com sucesso")
+	logger.Info("Successfully connected to MongoDB")
 	collection = client.Database("auth").Collection("users")
 
+	// Configuração do Gin
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(logMiddleware())
 
+	// Rotas
 	r.GET("/health", healthCheck)
 	r.POST("/login", login)
 	r.POST("/register", register)
@@ -98,19 +102,21 @@ func main() {
 		port = "8001"
 	}
 
-	logger.Infof("Auth Service iniciando na porta %s", port)
+	logger.Infof("Auth Service starting on port %s", port)
 	if err := r.Run(fmt.Sprintf(":%s", port)); err != nil {
-		logger.Fatalf("Falha ao iniciar o servidor: %v", err)
+		logger.WithError(err).Fatal(ErrServerStart)
 	}
 }
 
 func logMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// Before request
 		path := c.Request.URL.Path
 		method := c.Request.Method
 		
 		c.Next()
 		
+		// After request
 		statusCode := c.Writer.Status()
 		logger.WithFields(logrus.Fields{
 			"path":   path,
@@ -129,29 +135,32 @@ func healthCheck(c *gin.Context) {
 func register(c *gin.Context) {
 	var req RegisterRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.WithError(err).Error("ERROR: Invalid data")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid Data"})
+		logger.WithError(err).Error(ErrInvalidRegisterData)
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidRegisterData})
 		return
 	}
 
+	// Check if user already exists
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
 	var existingUser User
 	err := collection.FindOne(ctx, bson.M{"username": req.Username}).Decode(&existingUser)
 	if err == nil {
-		logger.WithField("username", req.Username).Error("Username already exist")
-		c.JSON(http.StatusConflict, gin.H{"error": "User Name already in use"})
+		logger.WithField("username", req.Username).Error(ErrUsernameAlreadyTaken)
+		c.JSON(http.StatusConflict, gin.H{"error": ErrUsernameAlreadyTaken})
 		return
 	}
 
+	// Hash password
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
 	if err != nil {
-		logger.WithError(err).Error("Erro when generating hash")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Error processing registration"})
+		logger.WithError(err).Error(ErrPasswordHashFailed)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrInternalServer})
 		return
 	}
 
+	// Create new user
 	newUser := User{
 		Username: req.Username,
 		Password: string(hashedPassword),
@@ -160,16 +169,17 @@ func register(c *gin.Context) {
 
 	res, err := collection.InsertOne(ctx, newUser)
 	if err != nil {
-		logger.WithError(err).Error("Erro inserting user on mongo")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro processing registration"})
+		logger.WithError(err).Error(ErrMongoUserInsert)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrInternalServer})
 		return
 	}
 
+	// Return created user ID
 	id := res.InsertedID.(primitive.ObjectID)
 	logger.WithFields(logrus.Fields{
 		"userID":   id.Hex(),
 		"username": req.Username,
-	}).Info("Usuário registrado com sucesso")
+	}).Info("User registered successfully")
 	
 	c.JSON(http.StatusCreated, gin.H{
 		"id":       id.Hex(),
@@ -181,32 +191,32 @@ func register(c *gin.Context) {
 func login(c *gin.Context) {
 	var req LoginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		logger.WithError(err).Error("Dados de login inválidos")
-		c.JSON(http.StatusBadRequest, gin.H{"error": "Dados de login inválidos"})
+		logger.WithError(err).Error(ErrInvalidLoginData)
+		c.JSON(http.StatusBadRequest, gin.H{"error": ErrInvalidLoginData})
 		return
 	}
 
-	// Busca usuário no banco
+	// Find user in database
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
 	var user User
 	err := collection.FindOne(ctx, bson.M{"username": req.Username}).Decode(&user)
 	if err != nil {
-		logger.WithField("username", req.Username).Error("Usuário não encontrado")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+		logger.WithField("username", req.Username).Error(ErrUserNotFound)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": ErrInvalidCredentials})
 		return
 	}
 
-	// Verifica senha
+	// Verify password
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password))
 	if err != nil {
-		logger.WithField("username", req.Username).Error("Senha incorreta")
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Credenciais inválidas"})
+		logger.WithField("username", req.Username).Error(ErrInvalidCredentials)
+		c.JSON(http.StatusUnauthorized, gin.H{"error": ErrInvalidCredentials})
 		return
 	}
 
-	// Gera token JWT
+	// Generate JWT token
 	tokenExpiry := os.Getenv("TOKEN_EXPIRY")
 	if tokenExpiry == "" {
 		tokenExpiry = "24h"
@@ -227,12 +237,12 @@ func login(c *gin.Context) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
-		logger.WithError(err).Error("Erro ao gerar token JWT")
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "Erro ao processar login"})
+		logger.WithError(err).Error(ErrTokenGenerationFailed)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": ErrInternalServer})
 		return
 	}
 
-	logger.WithField("username", req.Username).Info("Login realizado com sucesso")
+	logger.WithField("username", req.Username).Info("User logged in successfully")
 	c.JSON(http.StatusOK, gin.H{
 		"token": tokenString,
 		"user": gin.H{
@@ -246,30 +256,33 @@ func login(c *gin.Context) {
 func validateToken(c *gin.Context) {
 	tokenHeader := c.GetHeader("Authorization")
 	if tokenHeader == "" {
-		logger.Warn("Token empty")
+		logger.Warn(ErrTokenNotProvided)
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
+	// Remove "Bearer" prefix if exists
 	tokenString := tokenHeader
 	if strings.HasPrefix(tokenHeader, "Bearer ") {
 		tokenString = strings.TrimPrefix(tokenHeader, "Bearer ")
 	}
 
+	// Validate token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, fmt.Errorf("signature method unexpected: %v", token.Header["alg"])
+			return nil, fmt.Errorf(ErrUnexpectedSigningMethod, token.Header["alg"])
 		}
 		return []byte(jwtSecret), nil
 	})
 
 	if err != nil {
-		logger.WithError(err).Error("Erro validating token")
+		logger.WithError(err).Error(ErrInvalidToken)
 		c.AbortWithStatus(http.StatusUnauthorized)
 		return
 	}
 
 	if claims, ok := token.Claims.(jwt.MapClaims); ok && token.Valid {
+		// Valid token, set response headers for ForwardAuth middleware
 		userID, _ := claims["id"].(string)
 		username, _ := claims["username"].(string)
 		role, _ := claims["role"].(string)
@@ -282,11 +295,11 @@ func validateToken(c *gin.Context) {
 			"userID":   userID,
 			"username": username,
 			"role":     role,
-		}).Debug("Token validado com sucesso")
+		}).Debug("Token validated successfully")
 		
 		c.Status(http.StatusOK)
 	} else {
-		logger.Error("Token inválido")
+		logger.Error(ErrInvalidToken)
 		c.AbortWithStatus(http.StatusUnauthorized)
 	}
 }
