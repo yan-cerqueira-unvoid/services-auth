@@ -84,14 +84,21 @@ func main() {
 	logger.Info("Successfully connected to MongoDB")
 	collection = client.Database("auth").Collection("users")
 
+	initOAuth()
+
 	r := gin.New()
 	r.Use(gin.Recovery())
 	r.Use(logMiddleware())
+	r.Use(CorsMiddleware())
 
 	r.GET("/health", healthCheck)
 	r.POST("/login", login)
 	r.POST("/register", register)
 	r.GET("/validate", validateToken)
+
+	// OAuth
+	r.GET("/oauth/google/login", googleLoginHandler)
+	r.GET("/oauth/google/callback", googleCallbackHandler)
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -101,6 +108,21 @@ func main() {
 	logger.Infof("Auth Service starting on port %s", port)
 	if err := r.Run(fmt.Sprintf(":%s", port)); err != nil {
 		logger.WithError(err).Fatal(ErrServerStart)
+	}
+}
+
+func CorsMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		c.Writer.Header().Set("Access-Control-Allow-Origin", "*")
+		c.Writer.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Writer.Header().Set("Access-Control-Allow-Headers", "Origin, Authorization, Content-Type")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusNoContent)
+			return
+		}
+
+		c.Next()
 	}
 }
 
