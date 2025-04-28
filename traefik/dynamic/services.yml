@@ -1,0 +1,51 @@
+http:
+  routers:
+    dashboard:
+      rule: "Host(`traefik.localhost`)"
+      service: "api@internal"
+      entrypoints:
+        - web
+    
+    api:
+      rule: "PathPrefix(`/api`)"
+      entrypoints:
+        - web
+      service: api-service
+      middlewares:
+        - api-auth
+    
+    auth:
+      rule: "Host(`auth.localhost`)"
+      entrypoints:
+        - web
+      service: auth-service
+    
+    prometheus:
+      rule: "Host(`prometheus.localhost`)"
+      entrypoints:
+        - web
+      service: prometheus-service
+  
+  middlewares:
+    api-auth:
+      forwardAuth:
+        address: "http://auth-service:8001/validate"
+        authResponseHeaders:
+          - "X-User-ID"
+          - "X-User-Role"
+  
+  services:
+    api-service:
+      loadBalancer:
+        servers:
+          - url: "http://api-service:8000"
+    
+    auth-service:
+      loadBalancer:
+        servers:
+          - url: "http://auth-service:8001"
+    
+    prometheus-service:
+      loadBalancer:
+        servers:
+          - url: "http://prometheus:9090"
