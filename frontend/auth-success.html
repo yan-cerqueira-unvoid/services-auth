@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Autenticação Concluída - API Demo</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="auth-success-container">
+            <h1>Autenticação Concluída</h1>
+            <div class="success-message">
+                <p>Você foi autenticado com sucesso!</p>
+                <p>Redirecionando para o dashboard...</p>
+            </div>
+            <div class="loading-spinner"></div>
+        </div>
+    </div>
+    
+    <script>
+        // Get token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            localStorage.setItem('authToken', token);
+            
+            setTimeout(() => {
+                window.location.href = '/dashboard.html';
+            }, 2000);
+        } else {
+            document.querySelector('.success-message').innerHTML = `
+                <p class="error">Erro de autenticação. Token não encontrado.</p>
+                <p><a href="index.html">Voltar para a página de login</a></p>
+            `;
+            document.querySelector('.loading-spinner').style.display = 'none';
+        }
+    </script>
+</body>
+</html>

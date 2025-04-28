@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - API Demo</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+    <div class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Dashboard</h1>
+            <div class="user-info">
+                <span id="username-display">Carregando...</span>
+                <button id="logout-btn" class="btn logout-btn">Sair</button>
+            </div>
+        </header>
+        
+        <main class="dashboard-content">
+            <div class="welcome-section">
+                <h2>Bem-vindo ao Dashboard</h2>
+                <p>Esta é uma demonstração de autenticação integrada com Google OAuth 2.0</p>
+            </div>
+            
+            <div class="data-section">
+                <h3>Seus Dados Protegidos</h3>
+                <div id="protected-data" class="data-display">
+                    <p>Carregando dados protegidos...</p>
+                </div>
+            </div>
+        </main>
+    </div>
+    
+    <div id="message" class="message hidden"></div>
+    
+    <script src="js/dashboard.js"></script>
+</body>
+</html>

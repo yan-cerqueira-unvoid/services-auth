@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - API Demo</title>
+    <link rel="stylesheet" href="css/styles.css">
+</head>
+
+<body>
+    <div class="container">
+        <div class="auth-container">
+            <h1>Login</h1>
+            
+            <div class="form-container">
+                <form id="login-form">
+                    <div class="form-group">
+                        <label for="username">Usuário</label>
+                        <input type="text" id="username" name="username" placeholder="Seu nome de usuário" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="password">Senha</label>
+                        <input type="password" id="password" name="password" placeholder="Sua senha" required>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn primary-btn">Entrar</button>
+                    </div>
+                </form>
+                
+                <div class="divider">
+                    <span>ou</span>
+                </div>
+                
+                <div class="oauth-container">
+                    <button id="google-login" class="btn oauth-btn google-btn">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" class="oauth-icon">
+                        Entrar com Google
+                    </button>
+                </div>
+                
+                <div class="register-link">
+                    <p>Não tem uma conta? <a href="#" id="show-register">Registre-se</a></p>
+                </div>
+            </div>
+        </div>
+        
+        <div class="auth-container hidden" id="register-container">
+            <h1>Registro</h1>
+            
+            <div class="form-container">
+                <form id="register-form">
+                    <div class="form-group">
+                        <label for="reg-username">Usuário</label>
+                        <input type="text" id="reg-username" name="username" placeholder="Escolha um nome de usuário" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="reg-password">Senha</label>
+                        <input type="password" id="reg-password" name="password" placeholder="Escolha uma senha" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="role">Função</label>
+                        <select id="role" name="role" required>
+                            <option value="user">Usuário</option>
+                            <option value="admin">Administrador</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <button type="submit" class="btn primary-btn">Registrar</button>
+                    </div>
+                </form>
+                
+                <div class="login-link">
+                    <p>Já tem uma conta? <a href="#" id="show-login">Faça login</a></p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="message" class="message hidden"></div>
+    
+    <script src="js/auth.js"></script>
+</body>
+</html>
